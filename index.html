@@ -303,15 +303,40 @@ function calcPts(secs){
   return Math.round(MAX_PTS*(0.2 + 0.8*(1-secs/MAX_TIME)));
 }
 
+/* ─── ALEATORIZACIÓN ─── */
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+
+function buildShuffledQuiz(){
+  // Clonar preguntas y barajar su orden
+  const shuffledQs = shuffle(QS.map(q=>({...q, opts:[...q.opts]})));
+  // Para cada pregunta, barajar las opciones y recalcular ans
+  return shuffledQs.map(q=>{
+    const correctText = q.opts[q.ans];
+    const shuffledOpts = shuffle([...q.opts]);
+    return {
+      text: q.text,
+      opts: shuffledOpts,
+      ans: shuffledOpts.indexOf(correctText)
+    };
+  });
+}
+
 /* ─── FLUJO ─── */
 function startQuiz(){
   cur=0; score=0; results=[];
+  window.QS_ACTIVE = buildShuffledQuiz();
   showScreen('screen-quiz');
   loadQ();
 }
 
 function loadQ(){
-  const q=QS[cur];
+  const q=QS_ACTIVE[cur];
   answered=false; timeLeft=MAX_TIME; qStartMs=Date.now();
 
   document.getElementById('q-counter').textContent=cur+1;
@@ -361,11 +386,11 @@ function pick(idx,el){
   clearInterval(timerInt);
   const secs=Math.round((Date.now()-qStartMs)/1000);
   const pts=calcPts(secs);
-  const ok=QS[cur].ans===idx;
+  const ok=QS_ACTIVE[cur].ans===idx;
 
   document.querySelectorAll('.opt').forEach(o=>o.classList.add('disabled'));
   el.classList.add(ok?'selected':'wrong');
-  if(!ok) document.querySelectorAll('.opt')[QS[cur].ans].classList.add('correct');
+  if(!ok) document.querySelectorAll('.opt')[QS_ACTIVE[cur].ans].classList.add('correct');
   document.getElementById('q-card').classList.add('answered');
 
   if(ok){
@@ -377,7 +402,7 @@ function pick(idx,el){
     requestAnimationFrame(()=>f.classList.add('show'));
   }
 
-  results.push({n:cur+1,label:QS[cur].text.substring(0,48)+'…',ok,pts:ok?pts:0,secs});
+  results.push({n:cur+1,label:QS_ACTIVE[cur].text.substring(0,48)+'…',ok,pts:ok?pts:0,secs});
   document.getElementById('score-live').textContent=score+' pts';
 
   const btn=document.getElementById('btn-next');
@@ -389,9 +414,9 @@ function timeout(){
   if(answered)return;
   answered=true;
   document.querySelectorAll('.opt').forEach(o=>o.classList.add('disabled'));
-  document.querySelectorAll('.opt')[QS[cur].ans].classList.add('correct');
+  document.querySelectorAll('.opt')[QS_ACTIVE[cur].ans].classList.add('correct');
   document.getElementById('timeout-banner').classList.add('show');
-  results.push({n:cur+1,label:QS[cur].text.substring(0,48)+'…',ok:false,pts:0,secs:MAX_TIME});
+  results.push({n:cur+1,label:QS_ACTIVE[cur].text.substring(0,48)+'…',ok:false,pts:0,secs:MAX_TIME});
   const btn=document.getElementById('btn-next');
   btn.textContent=cur<9?'Siguiente →':'Ver resultados →';
   btn.classList.add('visible');
